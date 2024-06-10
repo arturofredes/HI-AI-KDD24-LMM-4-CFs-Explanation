@@ -96,15 +96,15 @@ class LLMExplanation4CFs:
 
         self.examplecode_chain = LLMChain(llm=llm, prompt=prompt)
 
-    def explain(self, example: pd.DataFrame, verbose = False , return_all = False):
-        if example.shape[0] != 1:
+    def explain(self, user_data: pd.DataFrame, verbose = False , return_all = False):
+        if user_data.shape[0] != 1:
             return 'Error, you should provide a single example'
-        pred = self.model.predict(example)
+        pred = self.model.predict(user_data)
         if pred == 1:
             return 'This person is predicted to earn more than 50k$'
         
         #generate counterfactuals
-        counterfactuals = self.exp.generate_counterfactuals(example[0:1], total_CFs=self.n_counterfactuals, desired_class="opposite",
+        counterfactuals = self.exp.generate_counterfactuals(user_data[0:1], total_CFs=self.n_counterfactuals, desired_class="opposite",
                                                 #features_to_vary=["workclass",'hours_per_week','occupation']
                                                 )
         if verbose:
@@ -158,10 +158,10 @@ class LLMExplanation4CFs:
         else:
             return explanation
         
-    def explain_evaluate(self, example, verbose = False, return_all = False):
-        if example.shape[0] != 1:
+    def explain_evaluate(self, user_data: pd.DataFrame, verbose = False, return_all = False):
+        if user_data.shape[0] != 1:
             return 'Error, you should provide a single example'
-        pred = self.model.predict(example)
+        pred = self.model.predict(user_data)
         if pred == 1:
             return 'This person is predicted to earn more than 50k$'
         
@@ -186,7 +186,7 @@ class LLMExplanation4CFs:
         if os.path.exists(file4):
             os.remove(file4)
         #generate counterfactuals
-        counterfactuals = self.exp.generate_counterfactuals(example[0:1], total_CFs=self.n_counterfactuals, desired_class="opposite",
+        counterfactuals = self.exp.generate_counterfactuals(user_data[0:1], total_CFs=self.n_counterfactuals, desired_class="opposite",
                                                 #features_to_vary=["workclass",'hours_per_week','occupation']
                                                 )
         if verbose:
@@ -286,11 +286,9 @@ class LLMExplanation4CFs:
         if return_all:
             return counterfactuals._cf_examples_list[0].final_cfs_df, rules, code1,  result1, explanation, code2, final_cf, code3, \
             self.model.predict(final_cf)[0], n_rules,rules_followed, first_rule, second_rule,third_rule, \
-            is_in_dataset(counterfactuals._cf_examples_list[0].final_cfs_df,final_cf), \
             is_in_dataset(pd.concat([self.training, self.test], axis=0).reset_index(drop=True),final_cf)
         else:
             return self.model.predict(final_cf)[0], n_rules,rules_followed, first_rule, second_rule,third_rule, \
-                is_in_dataset(counterfactuals._cf_examples_list[0].final_cfs_df,final_cf), \
                 is_in_dataset(pd.concat([self.training, self.test], axis=0).reset_index(drop=True),final_cf)
 
 class ToTLLMExplanation4CFs():
@@ -357,7 +355,7 @@ class ToTLLMExplanation4CFs():
         rules = []
         results = []
         for i in range(self.branches):
-            cfs, rule, code, result, explanation = self.exp_m.explain(user_data)
+            cfs, rule, code, result, explanation = self.exp_m.explain(user_data, return_all=True)
             explanations.append(explanation)
             rules.append(rule)
             results.append(result)

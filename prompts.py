@@ -14,7 +14,7 @@ def ZeroShotRules():
 
 def ZeroShotRulesCode():
     return  """
-        Im providing a negative outcome from a {ML-system}, a set of positive counterfactual cases and the main rules inferred from the counterfactuals.
+        Im providing a negative outcome from a {ML-system}, a set of counterfactual cases that flip the decision of the system and the main rules inferred from the counterfactuals.
         You should generate python code to count how many of the counterfactuals are consistent with the rule. The code should create a df with the counterfactuals provided and then check for each rule how many of them follow the rules. Order the rules. Finally, you should print the results.
  
         ----- Negative assessment outcome -----
@@ -121,7 +121,7 @@ def ZeroShotExample():
 
 def ZeroShotExampleCode():
     return  """
-    Im providing a negative outcome from a {ML-system}. A positive example in the format os a single row dataframe was created in temp_csv from the rules that are also provided. Give some code to check the number of rules followed by the example. The result must be given in the format of a dataframe and saved as a csv. The dataframe must have columns 'Rule' with the text of the rule, 'Importance' with the number of counterfactuals follow each rule, and 'In explanation' (1 or 0) depending if the final example follows the explanation or not. It is very important to save the csv as 'evaluation.csv'.
+    Im providing a negative outcome from a {ML-system}. A counterfactual example in the format os a single row dataframe was created in temp_csv from the rules that are also provided. Give some code to check the number of rules followed by the example. The result must be given in the format of a dataframe and saved as a csv. The dataframe must have columns 'Rule' with the text of the rule, 'Importance' with the number of counterfactuals follow each rule, and 'In explanation' (1 or 0) depending if the final example follows the explanation or not. It is very important to save the csv as 'evaluation.csv'.
     
     ----- Negative assessment outcome -----
     {negative_outcome}
@@ -351,6 +351,7 @@ def OneShotExplanation(user_input = False):
         ----- Explanation -----
         Furthermore, an expert user has said that the most relevant rules are: 1,2
         Given this information, provide an explanation to the user in plain language so that he/she can improve their chances of changing class. It should be as clear as possible and call to action. Consider that the higher amount of counterfactuals that follow the rule, the more important that rule is. 
+        
         Based on the results obtained from the analysis, it's clear that certain factors significantly influence the likelihood of achieving a higher income. Here's a plain language explanation targeting improvement:
 
         Pursue Higher Education: The analysis shows that obtaining a higher education degree such as a Masters, Doctorate, Bachelors, or Professional school significantly increases your chances of a higher income. This indicates that investing time and resources in further education can be a valuable path to improving your economic standing.
@@ -474,7 +475,7 @@ def OneShotExplanation(user_input = False):
 def OneShotExample():
         return """
         Im providing a negative outcome from a {ML-system}, an explanation of why the outcome was negative, and some information about the dataset and variables.
-        Given this information, your task is to generate a counterfactual example that will be of the positive class. Provide the example in the format of a pandas dataframe that would be in the positive class. Complete the code below and note that it is very important to use the name 'temp_csv.csv', since later processes rely on it.
+        Given this information, your task is to generate a counterfactual example that will produce the desired output from the classifier. Provide the example in the format of a pandas dataframe that would be in the positive class. Complete the code below and note that it is very important to use the name 'temp_csv.csv', since later processes rely on it.
         Example:
         ----- Negative assessment outcome -----
         (<bound method DataFrame.to_string of    age workclass education marital_status   occupation   race  gender  \

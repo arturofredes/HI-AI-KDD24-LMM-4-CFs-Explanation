@@ -10,42 +10,46 @@ import os
 
 class LLMExplanation4CFs:
     def __init__(self, model, backend: str,model_description: str, dataset_info: str, continuous_features, outcome_name: str, training_set: pd.DataFrame, test_set: pd.DataFrame, llm = 'gpt-4o', prompt_type = 'zero', n_counterfactuals=5, user_input=False) -> None:
-        self.model = model
-        self.backend = backend
-        self.model_description = model_description
-        self.dataset_info = dataset_info
-        self.continuous_features = continuous_features
-        self.outcome_name = outcome_name
-        self.training = training_set
-        self.test = test_set
-        self.llm = llm
-        self.prompt_type = prompt_type
-        self.n_counterfactuals = n_counterfactuals
-        self.user_input = user_input
+        self.model = model                                #Load the model we want to explain
+        self.backend = backend                            # brief explanation of the ML model
+        self.model_description = model_description        # Framework used to build the model (used to generate counterfactuals)
+        self.dataset_info = dataset_info                  # string information about the dataset
+        self.continuous_features = continuous_features    # List of continuous features (Necessary for the counterfactual generation)
+        self.outcome_name = outcome_name                  # Label (Necessary for counterfactual generation)
+        self.training = training_set                      # Necessary for counterfactual generation
+        self.test = test_set                              # Necessary to  check novelty of the evaluation example
+        self.llm = llm                                    # LLM used, works with Langchain
+        self.prompt_type = prompt_type                    # zero or one
+        self.n_counterfactuals = n_counterfactuals        # Number of counterfactuals used in the explanation 
+        self.user_input = user_input                      # Human in the loop helping select the causes
+                           
 
     def fit(self):
+        # Fit the counterfactual generation class
         # Step 1: dice_ml.Data
         d = dice_ml.Data(dataframe=self.training, continuous_features=self.continuous_features, outcome_name=self.outcome_name)
         # Using sklearn backend
         m = dice_ml.Model(model=self.model, backend=self.backend)
         # Using method=random for generating CFs
-        self.exp = dice_ml.Dice(d, m, method="random")
+        self.exp = dice_ml.Dice(d, m, method="random", )
 
+
+        # Create the different chains that will be used
         llm = ChatOpenAI(model_name=self.llm)
 
         if self.prompt_type == 'zero':
             template1 = ZeroShotRules()
             template2 = ZeroShotRulesCode()
             template3 = ZeroShotExplanation(self.user_input)
-            template4 = ZeroShotExample2()
-            template5 = ZeroShotExampleCode2()
+            template4 = ZeroShotExample()
+            template5 = ZeroShotExampleCode()
 
         elif self.prompt_type == 'one':
             template1 = OneShotRules()
             template2 = OneShotRulesCode()
             template3 = OneShotExplanation(self.user_input)
-            template4 = OneShotExample2()
-            template5 = OneShotExampleCode2()
+            template4 = OneShotExample()
+            template5 = OneShotExampleCode()
 
         else:
             raise ValueError('Not a prompting strategy considered')
@@ -98,63 +102,61 @@ class LLMExplanation4CFs:
         pred = self.model.predict(example)
         if pred == 1:
             return 'This person is predicted to earn more than 50k$'
-        else:
-            #generate counterfactuals
-            counterfactuals = self.exp.generate_counterfactuals(example[0:1], total_CFs=self.n_counterfactuals, desired_class="opposite",
-                                                  #features_to_vary=["workclass",'hours_per_week','occupation']
-                                                  )
-            if verbose:
-                print(counterfactuals._cf_examples_list[0].final_cfs_df)
-            #generate rules and code
-            response = self.rules_chain.run(({
+        
+        #generate counterfactuals
+        counterfactuals = self.exp.generate_counterfactuals(example[0:1], total_CFs=self.n_counterfactuals, desired_class="opposite",
+                                                #features_to_vary=["workclass",'hours_per_week','occupation']
+                                                )
+        if verbose:
+            print(counterfactuals._cf_examples_list[0].final_cfs_df)
+        #generate rules and code
+        response = self.rules_chain.run(({
+        "ML-system": self.model_description,
+        "negative_outcome": counterfactuals._cf_examples_list[0].test_instance_df.to_string,
+        "positive_outcome": counterfactuals._cf_examples_list[0].final_cfs_df.to_string
+        }))
+
+        rules = response
+
+        response = self.rulescode_chain.run(({
             "ML-system": self.model_description,
             "negative_outcome": counterfactuals._cf_examples_list[0].test_instance_df.to_string,
-            "positive_outcome": counterfactuals._cf_examples_list[0].final_cfs_df.to_string
+            "positive_outcome": counterfactuals._cf_examples_list[0].final_cfs_df.to_string,
+            "rules" : rules,
+            "dataset_info": self.dataset_info
             }))
-            try:
-                rules = extract_rules(response)
-            except:
-                rules = response
+        code = extract_code(response)
+        if verbose == True:
+            print(rules)
+            print(code)
+        result, _ = execute_code(code)
+        if verbose == True:
+            print(result)
 
-            response = self.rulescode_chain.run(({
+        if self.user_input:
+            selection = input('Select themost relevant rules'+'\nRules:\n'+ rules + '\nRelevance:\n' + result)
+            explanation = self.explanation_chain.run(({
                 "ML-system": self.model_description,
                 "negative_outcome": counterfactuals._cf_examples_list[0].test_instance_df.to_string,
                 "positive_outcome": counterfactuals._cf_examples_list[0].final_cfs_df.to_string,
-                "rules" : rules,
+                "rules": rules,
+                "results": result,
+                'user_input': selection,
                 "dataset_info": self.dataset_info
                 }))
-            code = extract_code(response)
-            if verbose == True:
-                print(rules)
-                print(code)
-            result, _ = execute_code(code)
-            if verbose == True:
-                print(result)
-
-            if self.user_input:
-                selection = input('Select themost relevant rules'+'\nRules:\n'+ rules + '\nRelevance:\n' + result)
+        else: 
                 explanation = self.explanation_chain.run(({
-                    "ML-system": self.model_description,
-                    "negative_outcome": counterfactuals._cf_examples_list[0].test_instance_df.to_string,
-                    "positive_outcome": counterfactuals._cf_examples_list[0].final_cfs_df.to_string,
-                    "rules": rules,
-                    "results": result,
-                    'user_input': selection,
-                    "dataset_info": self.dataset_info
-                    }))
-            else: 
-                    explanation = self.explanation_chain.run(({
-                    "ML-system": self.model_description,
-                    "negative_outcome": counterfactuals._cf_examples_list[0].test_instance_df.to_string,
-                    "positive_outcome": counterfactuals._cf_examples_list[0].final_cfs_df.to_string,
-                    "rules": rules,
-                    "results": result,
-                    "dataset_info": self.dataset_info
-                    }))
-            if return_all:
-                return counterfactuals._cf_examples_list[0].final_cfs_df, rules, code, result, explanation
-            else:
-                return explanation
+                "ML-system": self.model_description,
+                "negative_outcome": counterfactuals._cf_examples_list[0].test_instance_df.to_string,
+                "positive_outcome": counterfactuals._cf_examples_list[0].final_cfs_df.to_string,
+                "rules": rules,
+                "results": result,
+                "dataset_info": self.dataset_info
+                }))
+        if return_all:
+            return counterfactuals._cf_examples_list[0].final_cfs_df, rules, code, result, explanation
+        else:
+            return explanation
         
     def explain_evaluate(self, example, verbose = False, return_all = False):
         if example.shape[0] != 1:
@@ -196,11 +198,8 @@ class LLMExplanation4CFs:
         "positive_outcome": counterfactuals._cf_examples_list[0].final_cfs_df.to_string
         }))
 
-        #Extract the rules from the whole text
-        try:
-            rules = extract_rules(response)
-        except:
-            rules = response
+
+        rules = response
 
         #Generate code to check the rules
         response = self.rulescode_chain.run(({
@@ -294,21 +293,41 @@ class LLMExplanation4CFs:
                 is_in_dataset(counterfactuals._cf_examples_list[0].final_cfs_df,final_cf), \
                 is_in_dataset(pd.concat([self.training, self.test], axis=0).reset_index(drop=True),final_cf)
 
-class ToTExplanationMachine():
-    def __init__(self, model,  model_description: str, dataset_info: str, training_set: pd.DataFrame, test_set, prompt_type = 'zero', n_counterfactuals=5, branches = 3) -> None:
-        self.model = model
-        self.model_description = model_description
-        self.dataset_info = dataset_info
-        self.training = training_set
-        self.test = test_set
-        self.prompt_type = prompt_type
-        self.n_counterfactuals = n_counterfactuals
-        self.branches = branches
+class ToTLLMExplanation4CFs():
+    def __init__(self, model, backend: str, model_description: str, dataset_info: str, continuous_features, outcome_name: str,training_set: pd.DataFrame, test_set, llm = 'gpt-4o', prompt_type = 'zero', n_counterfactuals=5, branches = 3, user_input = False) -> None:
+        self.model = model                                #Load the model we want to explain
+        self.backend = backend                            # brief explanation of the ML model
+        self.model_description = model_description        # Framework used to build the model (used to generate counterfactuals)
+        self.dataset_info = dataset_info                  # string information about the dataset
+        self.continuous_features = continuous_features    # List of continuous features (Necessary for the counterfactual generation)
+        self.outcome_name = outcome_name                  # Label (Necessary for counterfactual generation)
+        self.training = training_set                      # Necessary for counterfactual generation
+        self.test = test_set                              # Necessary to  check novelty of the evaluation example
+        self.llm = llm                                    # LLM used, works with Langchain
+        self.prompt_type = prompt_type                    # zero or one
+        self.n_counterfactuals = n_counterfactuals        # Number of counterfactuals used in the explanation 
+        self.user_input = user_input                      # Human in the loop helping select the causes
+        self.branches = branches       
+
+
     def fit(self):
-        self.exp_m = ExplanationMachine2(self.model, self.model_description, self.dataset_info, self.training, self.test, self.prompt_type , self.n_counterfactuals, False)
+        self.exp_m = LLMExplanation4CFs(model = self.model, #Load the model we want to explain
+                            model_description = self.model_description, # brief explanation of the ML model
+                            backend = self.backend, # Framework used to build the model (used to generate counterfactuals)
+                            dataset_info=self.dataset_info , # string information about the dataset
+                            continuous_features= self.continuous_features, # Necessary for the counterfactual generation
+                            outcome_name = self.outcome_name, #Necessary for counterfactual generation
+                            training_set = self.training, #Necessary for counterfactual generation
+                            test_set = self.test, #Necessary to  check novelty of the evaluation example
+                            llm = self.llm, #LLM used, works with Langchain 
+                            prompt_type = self.prompt_type, # zero or one
+                            n_counterfactuals = self.n_counterfactuals, #Number of counterfactuals used in the explanation 
+                            user_input = False #Human in the loop helping select the causes
+                           )
+
         self.exp_m.fit()
 
-        llm = ChatOpenAI(model_name="gpt-4")
+        llm = ChatOpenAI(model_name="gpt-4o")
 
         template = ToT_explain()
         prompt = PromptTemplate(
@@ -318,13 +337,13 @@ class ToTExplanationMachine():
         self.explain_chain = LLMChain(llm=llm, prompt=prompt)
 
 
-
-        template = OneShotExample2()
+        template = OneShotExample()
         prompt = PromptTemplate(
             input_variables=["ML-system", "negative_outcome","explanation","dataset_info"],
             template=template,
         )
         self.example_chain = LLMChain(llm=llm, prompt=prompt)
+
 
         template = ToT_ExampleCode()
         prompt = PromptTemplate(
@@ -333,12 +352,12 @@ class ToTExplanationMachine():
         )
         self.example_eval_chain = LLMChain(llm=llm, prompt=prompt)
 
-    def explain(self, user_data: pd.DataFrame, verbose = False ):
+    def explain(self, user_data: pd.DataFrame, verbose = False, return_all = False ):
         explanations = []
         rules = []
         results = []
         for i in range(self.branches):
-            cfs, rule, code, result, explanation = self.exp_m.explain(user_data, return_all=True)
+            cfs, rule, code, result, explanation = self.exp_m.explain(user_data)
             explanations.append(explanation)
             rules.append(rule)
             results.append(result)
@@ -350,9 +369,12 @@ class ToTExplanationMachine():
         'negative_outcome': user_data.to_string,
         "output_list": out
         }))
-        return response
+        if return_all:
+            return out, response
+        else:
+            return response
 
-    def explain_evaluate(self, user_data: pd.DataFrame, verbose = False ):
+    def explain_evaluate(self, user_data: pd.DataFrame, verbose = False, return_all = False):
         explanations = []
         rules = []
         results = []
@@ -408,9 +430,12 @@ class ToTExplanationMachine():
         if verbose:
             print(code3)
         final_df = pd.read_csv('evaluation.csv')
-        n_rules, rules_followed, first_rule, second_rule,third_rule = process_eval_csv(final_df)
+        n_rules, rules_followed, first_rule, second_rule, third_rule = process_eval_csv(final_df)
 
-
-        return self.model.predict(final_cf)[0], n_rules,rules_followed, first_rule, second_rule,third_rule, \
+        if return_all:
+            return out, explanation,code2, final_cf, code3, final_df, self.model.predict(final_cf)[0], n_rules,rules_followed, first_rule, second_rule,third_rule, \
+                is_in_dataset(pd.concat([self.training, self.test], axis=0).reset_index(drop=True),final_cf)            
+        else:
+            return self.model.predict(final_cf)[0], n_rules,rules_followed, first_rule, second_rule,third_rule, \
                 is_in_dataset(pd.concat([self.training, self.test], axis=0).reset_index(drop=True),final_cf)
 

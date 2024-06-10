@@ -19,17 +19,23 @@ def extract_text(text):
     return text[:start_code].strip() 
 
 def extract_rules(text):
-    # Regular expression pattern to match lines starting with numbers followed by a period
-    pattern = r"\d+\.\s.*"
+    # Regular expression pattern to find the last occurrence of "1."
+    pattern = r"1\.\s"
+    
     # Find all matches in the text
-    matches = re.findall(pattern, text)
-    # Processing matches to clean and separate them
-    rules = [match.strip() for match in matches]
-    out = ''
-    # Print the extracted rules
-    for rule in rules:
-        out = out + rule + '\n'
-    return out
+    matches = list(re.finditer(pattern, text))
+    
+    if not matches:
+        return ""
+    
+    # Get the position of the last "1." in the text
+    last_match = matches[-1]
+    start_position = last_match.start()
+    
+    # Extract everything from the last "1." onward
+    last_list = text[start_position:]
+    
+    return last_list.strip()
 
 def execute_code(code, timeout=10):
     with open("temp_code.py", "w") as f:

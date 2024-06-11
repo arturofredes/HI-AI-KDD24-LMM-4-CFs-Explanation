@@ -309,7 +309,7 @@ class ToTLLMExplanation4CFs():
 
 
     def fit(self):
-        self.exp_m = LLMExplanation4CFs(model = self.model, #Load the model we want to explain
+        self.exp_m1 = LLMExplanation4CFs(model = self.model, #Load the model we want to explain
                             model_description = self.model_description, # brief explanation of the ML model
                             backend = self.backend, # Framework used to build the model (used to generate counterfactuals)
                             dataset_info=self.dataset_info , # string information about the dataset
@@ -318,12 +318,27 @@ class ToTLLMExplanation4CFs():
                             training_set = self.training, #Necessary for counterfactual generation
                             test_set = self.test, #Necessary to  check novelty of the evaluation example
                             llm = self.llm, #LLM used, works with Langchain 
-                            prompt_type = self.prompt_type, # zero or one
+                            prompt_type = 'zero', # zero or one
                             n_counterfactuals = self.n_counterfactuals, #Number of counterfactuals used in the explanation 
                             user_input = False #Human in the loop helping select the causes
                            )
 
-        self.exp_m.fit()
+        self.exp_m2 = LLMExplanation4CFs(model = self.model, #Load the model we want to explain
+                            model_description = self.model_description, # brief explanation of the ML model
+                            backend = self.backend, # Framework used to build the model (used to generate counterfactuals)
+                            dataset_info=self.dataset_info , # string information about the dataset
+                            continuous_features= self.continuous_features, # Necessary for the counterfactual generation
+                            outcome_name = self.outcome_name, #Necessary for counterfactual generation
+                            training_set = self.training, #Necessary for counterfactual generation
+                            test_set = self.test, #Necessary to  check novelty of the evaluation example
+                            llm = self.llm, #LLM used, works with Langchain 
+                            prompt_type = 'one', # zero or one
+                            n_counterfactuals = self.n_counterfactuals, #Number of counterfactuals used in the explanation 
+                            user_input = False #Human in the loop helping select the causes
+                           )
+
+        self.exp_m1.fit()
+        self.exp_m2.fit()
 
         llm = ChatOpenAI(model_name="gpt-4o")
 
@@ -334,8 +349,10 @@ class ToTLLMExplanation4CFs():
         )
         self.explain_chain = LLMChain(llm=llm, prompt=prompt)
 
-
-        template = OneShotExample()
+        if self.prompt_type == 'one':
+            template = OneShotExample()
+        else: 
+            template = ZeroShotExample()
         prompt = PromptTemplate(
             input_variables=["ML-system", "negative_outcome","explanation","dataset_info"],
             template=template,
@@ -355,7 +372,10 @@ class ToTLLMExplanation4CFs():
         rules = []
         results = []
         for i in range(self.branches):
-            cfs, rule, code, result, explanation = self.exp_m.explain(user_data, return_all=True)
+            if i%2 == 1:
+                cfs, rule, code, result, explanation = self.exp_m2.explain(user_data, return_all=True)
+            else:
+                cfs, rule, code, result, explanation = self.exp_m1.explain(user_data, return_all=True)
             explanations.append(explanation)
             rules.append(rule)
             results.append(result)
@@ -401,7 +421,11 @@ class ToTLLMExplanation4CFs():
 
         #Generate explanation
         for i in range(self.branches):
-            cfs, rule, code, result, explanation = self.exp_m.explain(user_data, return_all=True)
+            if i%2 == 1:
+                cfs, rule, code, result, explanation = self.exp_m2.explain(user_data, return_all=True)
+                
+            else:
+                cfs, rule, code, result, explanation = self.exp_m1.explain(user_data, return_all=True)         
             explanations.append(explanation)
             rules.append(rule)
             results.append(result)

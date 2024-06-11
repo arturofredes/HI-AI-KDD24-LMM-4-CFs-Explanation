@@ -41,6 +41,7 @@ directory = Path(f"./experiments/{prompt}/{cf}_cfs/examples/")
 # Create the directory if it does not exist
 directory.mkdir(parents=True, exist_ok=True)
 if prompt == 'ToT':
+    n_branches = int(input('Number of branches: '))
     exp_m = ToTLLMExplanation4CFs(model = model, #Load the model we want to explain
                             model_description = """ML-system that predicts wether a person will earn more than 50k $ a year""", # brief explanation of the ML model
                             backend='sklearn', # Framework used to build the model (used to generate counterfactuals)

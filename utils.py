@@ -110,7 +110,7 @@ def is_in_dataset(original_df, row_df):
 def get_metrics(df,prompt,cfs):
     validity = df[f'{cfs}_cfs_{prompt}_label'].mean()
     rules = df[f'{cfs}_cfs_{prompt}_rules'].mean()
-    rules_ratio = np.mean(df[f'{prompt}_rules_followed']/df[f'{prompt}_rules'])
+    rules_ratio = np.mean(df[f'{cfs}_cfs_{prompt}_rules_followed']/df[f'{cfs}_cfs_{prompt}_rules'])
     in_data = df[f'{cfs}_cfs_{prompt}_in_data'].mean()
     fail = df[f'{cfs}_cfs_{prompt}_status'].mean()
     first = df[f'{cfs}_cfs_{prompt}_rule_1'].mean()

@@ -16,6 +16,10 @@ prev_exp = pd.read_csv(f'./experiments/{prompt}/{cf}_cfs/experiment_{prompt}_{cf
 test100 = prev_exp[prev_exp[f'{cf}_cfs_{prompt}_status'] == 1]
 print(test100.shape[0],'experiments failed and will be retried')
 
+test100.reset_index(inplace=True)
+test100.rename(columns={'index': 'previous_index'}, inplace=True)
+
+
 # Load the model we want to explain
 with open("""./models/loan_model.pkl""", 'rb') as file:
     model = pickle.load(file)
@@ -74,23 +78,39 @@ else:
 
 exp_m.fit()
 for i in range(test100.shape[0]):
-    print(i)
+    ind = test100.loc[i,'previous_index']
+    print(ind)
+    file1 = f'./experiments/{prompt}/{cf}_cfs/examples/ex_{cf}cfs_{ind}.csv'
+    file2 = f'./experiments/{prompt}/{cf}_cfs/evals/eval_{cf}cfs_{ind}.csv'
+    # Check if file1 exists and remove it if it does
+    if os.path.exists(file1):
+        os.remove(file1)
+    if os.path.exists(file2):
+        os.remove(file2)
     try:              
         example_label, n_rules, rules_followed, first_rule, second_rule,third_rule, in_dataset = exp_m.explain_evaluate(user_data = pd.DataFrame(test100.loc[i, columns]).transpose(), verbose = False, return_all=False)
-        os.rename('./temp_files/temp_csv.csv', f'./experiments/{prompt}/{cf}_cfs/examples/ex_{cf}cfs_{i}.csv')
-        os.rename('./temp_files/evaluation.csv', f'./experiments/{prompt}/{cf}_cfs/evals/eval_{cf}cfs_{i}.csv')            
-        test100.loc[i, str(cf) + '_cfs_' + prompt + '_label'] = example_label
-        test100.loc[i, str(cf) + '_cfs_' +prompt + '_rules'] = n_rules
-        test100.loc[i, str(cf) + '_cfs_' +prompt + '_rules_followed'] = rules_followed
-        test100.loc[i, str(cf) + '_cfs_' + prompt + '_rule_1'] = first_rule
-        test100.loc[i, str(cf) + '_cfs_' + prompt + '_rule_2'] = second_rule
-        test100.loc[i, str(cf) + '_cfs_' + prompt + '_rule_3'] = third_rule
-        test100.loc[i, str(cf) + '_cfs_' +prompt + '_in_data'] = in_dataset
-        test100.loc[i, str(cf) + '_cfs_' +prompt + '_status'] = 0
+        os.rename('./temp_files/temp_csv.csv', f'./experiments/{prompt}/{cf}_cfs/examples/ex_{cf}cfs_{ind}.csv')
+        os.rename('./temp_files/evaluation.csv', f'./experiments/{prompt}/{cf}_cfs/evals/eval_{cf}cfs_{ind}.csv')            
+        prev_exp.loc[ind, str(cf) + '_cfs_' + prompt + '_label'] = example_label
+        prev_exp.loc[ind, str(cf) + '_cfs_' +prompt + '_rules'] = n_rules
+        prev_exp.loc[ind, str(cf) + '_cfs_' +prompt + '_rules_followed'] = rules_followed
+        prev_exp.loc[ind, str(cf) + '_cfs_' + prompt + '_rule_1'] = first_rule
+        prev_exp.loc[ind, str(cf) + '_cfs_' + prompt + '_rule_2'] = second_rule
+        prev_exp.loc[ind, str(cf) + '_cfs_' + prompt + '_rule_3'] = third_rule
+        prev_exp.loc[ind, str(cf) + '_cfs_' +prompt + '_in_data'] = in_dataset
+        prev_exp.loc[ind, str(cf) + '_cfs_' +prompt + '_status'] = 0
         print('success')
     except Exception as e:
         print(e)
-        test100.loc[i, str(cf) + '_cfs_' +prompt + '_status'] = 1
-
+        prev_exp.loc[ind, str(cf) + '_cfs_' +prompt + '_status'] = 1
 #merge
-test100.to_csv(f'experiment_retry_{prompt}_{cf}_cfs.csv')
+prev_exp.to_csv(f'./experiments/{prompt}/{cf}_cfs/experiment_{prompt}_{cf}_cfs.csv')
+prediction, n_rules, rules_followed,in_data, first, second, third, fail = get_metrics(prev_exp,prompt,cf)
+print('Prediction of the generated example: ', prediction)
+print('Number of rules generated: ', n_rules)
+print('Number of rules followed: ', rules_followed)
+print('1st rule followed ', first)
+print('2nd rule followed ', second)
+print('3rd rule followed ', third)
+print('Example exists in data: ', in_data)
+      

@@ -1,18 +1,22 @@
 # LLMs for Exaplaining Sets of Counterfactual Examples to Final Users
 ### Arturo Fredes & Jordi Vitrià | KDD 2024 Workshop HI-AI
-Causality is vital for understanding true cause-and-effect relationships between varianbles within
-predictive models, rather than relying on mere correlations, making them highly relevant in the field of
-Explainable AI. In an automated decision-making scenario, we can analyze the underlying data-generation
-process using causal inference methods, which enable us to explain a model’s decision by manipulating
-features and creating counterfactual examples. These counterfactuals explore hypothetical scenarios
-where a minimal number of factors are altered, providing end-users with valuable information on how
-to change their situation. However, interpreting a set of multiple counterfactuals can be challenging for
-end-users who are not used to analyze raw data records. In our work, we evaluate the use of Causally
-Informed LLMs in the explanation generation process and guide the LLM through smaller tasks that
-mimic human reasoning when explaining a decision based on counterfactual cases. We conducted
-various experiments using a public dataset and proposed a method of closed-loop evaluation to assess the
-coherence of the final explanation with the counterfactuals as well as the quality of the content. Finally,
-we use these causally informed LLMs to check the validity of the final explanation in causal terms.
+Counterfactual examples have shown to be a promising method for explaining a ma-
+chine learning model’s decisions, by providing the user with variants of its own data
+with small shifts to flip the outcome. When a user is presented with a single coun-
+terfactual, extracting conclusions from it is straightforward. Yet, this may not reflect
+the whole scope of possible actions the user can take, and furthermore, the example
+could be unfeasible. On the other hand, as we increase the number of counterfactu-
+als, drawing conclusions from them becomes difficult for people who are not trained
+in data analytic thinking. The objective of this work is to evaluate the use of LLMs
+in producing clear explanations in plain language of these counterfactual examples
+for the end user. We propose a method to decompose the explanation generation
+problem into smaller, more manageable tasks to guide the LLM, drawing inspira-
+tion from studies on how humans create and communicate explanations. We carry
+out different experiments using a public dataset and propose a method of closed
+loop evaluation to assess the coherence of the final explanation with the counterfac-
+tuals as well as the quality of the content. Furthermore, an experiment with people
+is currently being done in order to evaluate the understanding and satisfaction of
+the users.
 
 ## Setup
 You will neead an Open AI API key in your environment variables.
